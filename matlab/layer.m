@@ -42,7 +42,10 @@ classdef layer < matlab.mixin.Copyable
         function y = forw(l, x)
         % forw transforms input x to output y using the linear
         % transformation followed by the activation function. 
-
+            if size(size(x),2) == 4
+                x = reshape(x,[],size(x,4));
+            end
+            
             if l.bias
                 if size(x, 2) ~= size(l.xones, 2)
                     l.xones = 1 + 0 * x(1,:);
