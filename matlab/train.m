@@ -1,7 +1,7 @@
 function net = train(net, x, y, varargin)
     o = options(net, x, y, varargin{:});
     r = initreport(net, o);
-    M = size(x, 2);
+    M = size(x,size(size(x),2));
     L = numel(net);
     E = o.epochs;
     B = o.batch;
@@ -10,7 +10,7 @@ function net = train(net, x, y, varargin)
         for i = 1:B:M
             j = min(i+B-1, M);
 
-            a = x(:,i:j);
+            a = x(:,:,:,i:j);      %changed this for a 4-D input
             for l=1:L
                 if net{l}.dropout
                     a = net{l}.drop(a);
