@@ -4,7 +4,7 @@ classdef conv < layer
         numOutputFilters            %number of output feature maps
         pooling                     %boolean, true if pooling needs to be done
         poolDim                     %if pooling true then the pooling scale  
-        inputDim                    %dimension of input (square input assumed)
+        inputDim                    %dimensions of input
         filterDim                   %dimension of input filters
         poolFilter                  %pooling filter of ones 
         
@@ -30,14 +30,15 @@ classdef conv < layer
         % passing through the activation function of the layer
         % and also performs pooling if true
             numImages = size(x, 4);
-            convDim = l.inputDim - l.filterDim + 1;
+            convDim1 = l.inputDim(1) - l.filterDim + 1;
+            convDim2 = l.inputDim(2) - l.filterDim + 1;
             l.x = x;
             
             if(isempty(l.y))
                  if isa(x, 'gpuArray')
-                    l.y = gpuArray.zeros(convDim,convDim,l.numOutputFilters,numImages);
+                    l.y = gpuArray.zeros(convDim1,convDim2,l.numOutputFilters,numImages);
                  else
-                    l.y = zeros(convDim,convDim,l.numOutputFilters,numImages);
+                    l.y = zeros(convDim1,convDim2,l.numOutputFilters,numImages);
                  end
             else
                 l.y = 0 * l.y;
@@ -46,9 +47,9 @@ classdef conv < layer
             if l.pooling
                 if(isempty(l.z))
                     if isa(x, 'gpuArray')
-                        l.z = gpuArray.zeros(convDim/l.poolDim,convDim/l.poolDim,l.numOutputFilters,numImages);
+                        l.z = gpuArray.zeros(convDim1/l.poolDim,convDim1/l.poolDim,l.numOutputFilters,numImages);
                     else
-                        l.z = zeros(convDim/l.poolDim,convDim/l.poolDim,l.numOutputFilters,numImages);
+                        l.z = zeros(convDim1/l.poolDim,convDim1/l.poolDim,l.numOutputFilters,numImages);
                     end
                 else
                     l.z = 0 * l.z;
@@ -117,7 +118,7 @@ classdef conv < layer
                         l.db(c) = l.db(c) + sum(tempDx(:));
                         
                         if nargout > 0
-                            dx(:,:,f,i) = dx(:,:,f,i) +conv2(tempDx,d.w(:,:,f,c),'full');
+                            dx(:,:,f,i) = dx(:,:,f,i) +conv2(tempDx,l.w(:,:,f,c),'full');
                         end
                         
                     end
