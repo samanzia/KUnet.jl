@@ -10,6 +10,7 @@ classdef conv < layer
         
         db1                         % moving average of bias gradients for momentum
         db2                         % sum of squared bias gradients for adagrad
+        relu                        % if true, then use relu otherwise default
     end
     
     properties (Transient = true)
@@ -23,6 +24,16 @@ classdef conv < layer
         % fback multiplies its input with the derivative of the
         % activation function fforw.
             dy = dy .* l.y(:,:,c,i) .* (1 - l.y(:,:,c,i));
+        end
+        
+        function dy = fbackRelu(l, dy,c,i)
+        % fback multiplies its input with the derivative of the
+        % activation function fforwRelu.
+            dy = dy .* (l.y(:,:,c,i) > 0);
+        end
+        
+        function y = fforwRelu(l, y)
+            y(:) = y .* (y > 0);
         end
         
         function y = forw(l, x)
@@ -72,7 +83,11 @@ classdef conv < layer
                     end
                     l.y(:, :,filterNum,imageNum) = bsxfun(@rdivide,l.y(:, :,filterNum,imageNum),size(l.w,3)) ...
                         + l.b(filterNum);
-                    l.y(:, :,filterNum,imageNum) = l.fforw(l.y(:, :,filterNum,imageNum));
+                    if l.relu
+                        l.y(:, :,filterNum,imageNum) = l.fforwRelu(l.y(:, :,filterNum,imageNum));
+                    else    
+                        l.y(:, :,filterNum,imageNum) = l.fforw(l.y(:, :,filterNum,imageNum));
+                    end
                     
                     if l.pooling
                         l.z(:, :,filterNum,imageNum) = (downsample((downsample(conv2(l.y(:, :,filterNum,imageNum),l.poolFilter,'valid'),l.poolDim))',l.poolDim))';
@@ -109,9 +124,13 @@ classdef conv < layer
                         
                         if l.pooling
                             tempDx = bsxfun(@times,kron(squeeze(dy(:,:,c,i)),ones(l.poolDim)),(1/(l.poolDim^2)));
-                            tempDx = bsxfun(@rdivide,l.fback(tempDx,c,i),size(l.w,3));
                         else
-                            tempDx = bsxfun(@rdivide,l.fback(dy(:,:,c,i),c,i),size(l.w,3));
+                            tempDx = dy(:,:,c,i);
+                        end
+                        if l.relu
+                            tempDx = bsxfun(@rdivide,l.fbackRelu(tempDx,c,i),size(l.w,3));
+                        else
+                            tempDx = bsxfun(@rdivide,l.fback(tempDx,c,i),size(l.w,3));
                         end
                         
                         l.dw(:,:,f,c) = l.dw(:,:,f,c) + conv2(l.x(:,:,f,i),rot90(tempDx,2),'valid');
