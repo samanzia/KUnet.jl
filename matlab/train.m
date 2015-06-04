@@ -5,9 +5,11 @@ function net = train(net, x, y, varargin)
     L = numel(net);
     E = o.epochs;
     B = o.batch;
-
+    iter = 1;
     for e = 1:E
         for i = 1:B:M
+            disp(strcat(strcat('Epoch: ',num2str(e)),strcat(', Iteration: ',num2str(iter))));
+            iter = iter+1;
             j = min(i+B-1, M);
 
             a = x(:,:,:,i:j);      %changed this for a 4-D input
@@ -17,7 +19,7 @@ function net = train(net, x, y, varargin)
                 end
                 a = net{l}.forw(a);
             end
-
+            
             d = y(:,i:j);
             for l=L:-1:2
                 d = net{l}.back(d);

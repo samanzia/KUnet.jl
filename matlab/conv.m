@@ -10,7 +10,8 @@ classdef conv < layer
         
         db1                         % moving average of bias gradients for momentum
         db2                         % sum of squared bias gradients for adagrad
-        relu                        % if true, then use relu otherwise default
+        relu                        % if true, then use relu otherwise default sigmoid
+        maxpool                     % if true, do maxpooling, otherwise default mean pooling
     end
     
     properties (Transient = true)
@@ -36,6 +37,20 @@ classdef conv < layer
             y(:) = y .* (y > 0);
         end
         
+        function A = maxPoolForward(l,f,i)
+            A = 0 .* l.z(:,:,f,i);
+            m = l.y(:,:,f,i);
+            row = 1;col = 1;
+            for x = 1:l.poolDim:size(m,1)
+                for y = 1:l.poolDim:size(m,2)
+                    A(row,col) = max(max(m(x:x+l.poolDim-1,y:y+l.poolDim-1)));
+                    col = col+1;
+                end
+                col = 1;
+                row = row+1;
+            end
+        end
+        
         function y = forw(l, x)
         % forw transforms input x to output y by convolving and 
         % passing through the activation function of the layer
@@ -45,7 +60,7 @@ classdef conv < layer
             convDim2 = l.inputDim(2) - l.filterDim + 1;
             l.x = x;
             
-            if(isempty(l.y))
+            if(isempty(l.y) || numImages ~= size(l.y,4))
                  if isa(x, 'gpuArray')
                     l.y = gpuArray.zeros(convDim1,convDim2,l.numOutputFilters,numImages);
                  else
@@ -56,7 +71,7 @@ classdef conv < layer
             end
  
             if l.pooling
-                if(isempty(l.z))
+                if(isempty(l.z) || numImages ~= size(l.z,4))
                     if isa(x, 'gpuArray')
                         l.z = gpuArray.zeros(convDim1/l.poolDim,convDim1/l.poolDim,l.numOutputFilters,numImages);
                     else
@@ -65,15 +80,18 @@ classdef conv < layer
                 else
                     l.z = 0 * l.z;
                 end
+                
+                if(isempty(l.poolFilter) && isempty(l.maxpool))
+                    if isa(x, 'gpuArray')
+                        l.poolFilter = gpuArray.ones(l.poolDim,l.poolDim)*(1/(l.poolDim*l.poolDim));
+                    else
+                        l.poolFilter = ones(l.poolDim,l.poolDim)*(1/(l.poolDim*l.poolDim));
+                    end
+                end
+                
             end
                 
-            if(isempty(l.poolFilter))
-                if isa(x, 'gpuArray')
-                    l.poolFilter = gpuArray.ones(l.poolDim,l.poolDim)*(1/(l.poolDim*l.poolDim));
-                else
-                    l.poolFilter = ones(l.poolDim,l.poolDim)*(1/(l.poolDim*l.poolDim));
-                end
-            end
+            
                 
             for imageNum = 1:numImages
                 for filterNum = 1:size(l.w,4)
@@ -90,8 +108,12 @@ classdef conv < layer
                     end
                     
                     if l.pooling
-                        l.z(:, :,filterNum,imageNum) = (downsample((downsample(conv2(l.y(:, :,filterNum,imageNum),l.poolFilter,'valid'),l.poolDim))',l.poolDim))';
-                    end
+                        if l.maxpool
+                            l.z(:, :,filterNum,imageNum) = l.maxPoolForward(filterNum,imageNum);
+                        else
+                            l.z(:, :,filterNum,imageNum) = (downsample((downsample(conv2(l.y(:, :,filterNum,imageNum),l.poolFilter,'valid'),l.poolDim))',l.poolDim))';
+                        end
+                   end
                 end
             end
             
@@ -123,7 +145,11 @@ classdef conv < layer
                     for c = 1:size(l.w,4)
                         
                         if l.pooling
-                            tempDx = bsxfun(@times,kron(squeeze(dy(:,:,c,i)),ones(l.poolDim)),(1/(l.poolDim^2)));
+                            if l.maxpool
+                                tempDx = (kron(l.z(:,:,c,i),ones(l.poolDim)) == l.y(:,:,c,i)).*(kron(dy(:,:,c,i),ones(l.poolDim)));
+                            else
+                                tempDx = bsxfun(@times,kron(squeeze(dy(:,:,c,i)),ones(l.poolDim)),(1/(l.poolDim^2)));
+                            end
                         else
                             tempDx = dy(:,:,c,i);
                         end

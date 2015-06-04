@@ -42,8 +42,8 @@ classdef layer < matlab.mixin.Copyable
         function y = forw(l, x)
         % forw transforms input x to output y using the linear
         % transformation followed by the activation function. 
-            if size(size(x),2) == 4
-                x = reshape(x,[],size(x,4));
+            if size(size(x),2) > 2
+                x = reshape(x,[],size(x,size(size(x),2)));
             end
             
             if l.bias
